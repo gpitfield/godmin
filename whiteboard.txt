@@ -1,0 +1,15 @@
+how to pass arguments to functions (e.g. delete a list of IDs)
+use the right widgets (e.g. for bool field)
+
+admin needs to:
+	provide table view and detail/form view for different objects
+	enable setting those up based on fields to expose
+	allow for actions to be taken on a list of items
+	allow for actions to be taken on a specific item
+
+	package needs to implement admin interface - list, instance, functions
+	package registers itself with the admin on init via admin.Register
+	admin then generates endpoints
+
+Serializer interface gets implemented for different database backends.
+For mongo, we'll have a function that wraps a *mgo.Collection returning func to provide the interface
