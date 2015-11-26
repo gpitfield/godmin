@@ -1,0 +1,16 @@
+<ul class="pagination">
+  <li>
+    <a href="?page=0" aria-label="Previous">
+      <span aria-hidden="true">&laquo;</span>
+    </a>
+  </li>
+  {{$page := .page}}
+  {{range $index, $val := .pages}}
+    <li{{if eq $val $page}} class="active"{{end}}><a href="?page={{$val}}">{{add 1 $val}}</a></li>
+  {{end}}
+  <li>
+    <a href="?page={{.lastPage}}" aria-label="Next">
+      <span aria-hidden="true">&raquo;</span>
+    </a>
+  </li>
+</ul>

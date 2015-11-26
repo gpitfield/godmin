@@ -1,0 +1,7 @@
+Read only change form for top level values
+
+Delete function in change view
+Read only change form for embedded objects
+Writeable change form for text values
+Writeable change form for linked Objects
+"Create New" button in list view

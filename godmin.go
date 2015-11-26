@@ -5,11 +5,13 @@ package godmin
 
 import (
 	// "errors"
-	// "fmt"
 	// "html/template"
 	// "encoding/json"
+	// "fmt"
 	"log"
+	"math"
 	"net/http"
+	"net/url"
 	"reflect"
 	"strconv"
 	"strings"
@@ -17,8 +19,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type AdminAction interface {
-	// tbd how this should actually be set up
+type AdminAction struct {
+	Identifier  string
+	DisplayName string
+	Action      func(values *url.Values) (err error)
 }
 
 type AdminField struct {
@@ -37,6 +41,7 @@ type Accessor interface {
 	Get(pk string) (result interface{}, err error)
 	// Must return a slice of structs of the administered type
 	List(count, page int) (results interface{}, err error)
+	Count() (count int, err error)
 	// Upsert(items []interface{}) error
 }
 
@@ -52,11 +57,45 @@ type ModelAdmin struct {
 	ListFields   []string          // optional fields to be shown in list views.
 	ChangeFields []string          // optional fields to be shown in change view
 	FieldWidgets map[string]string // optional type of widget to render with
+	ListActions  map[string]*AdminAction
 	PKStringer
 	Accessor
 }
 
+func NewModelAdmin(modelName string, pkFieldName string, listFields []string,
+	changeFields []string, fieldWidgets map[string]string,
+	pkStringer PKStringer, accessor Accessor) (ma ModelAdmin) {
+	ma = ModelAdmin{
+		modelName,
+		pkFieldName,
+		listFields,
+		changeFields,
+		fieldWidgets,
+		make(map[string]*AdminAction),
+		pkStringer,
+		accessor,
+	}
+	return
+}
+
+func (m *ModelAdmin) AddListAction(action *AdminAction) {
+	m.ListActions[action.Identifier] = action
+}
+
 var modelAdmins = make(map[string]ModelAdmin)
+var brand = "Golang Admin"
+var pageSize = 100
+var showPageCount = 8
+
+// set the Brand name to show
+func SetBrand(b string) {
+	brand = b
+}
+
+// set the list page size
+func SetPageSize(p int) {
+	pageSize = p
+}
 
 // register a ModelAdmin instance to be available in the admin
 func Register(ma ModelAdmin) {
@@ -70,26 +109,39 @@ func Register(ma ModelAdmin) {
 
 func Routes(r *gin.RouterGroup) {
 	// root level is list of admin models
-	r.Handle("GET", "/", indexRoute)
-	r.Handle("GET", "/:model/", listRoute)
-	r.Handle("GET", "/:model/:pk", changeRoute)
+	r.Handle("GET", "/", index)
+	r.Handle("GET", "/:model/", list)
+	r.Handle("POST", "/:model/", listUpdate)
+	r.Handle("GET", "/:model/:pk", change)
 }
 
-func indexRoute(c *gin.Context) {
-	obj := gin.H{"title": "GitLance Admin", "admins": modelAdmins}
+func index(c *gin.Context) {
+	obj := gin.H{"brand": brand, "admins": modelAdmins}
 	c.HTML(200, "admin/index.html", obj)
 }
 
 // list of model instances, with dropdown actions and checkboxes
-func listRoute(c *gin.Context) {
+func list(c *gin.Context) {
 	modelAdmin, exists := modelAdmins[strings.ToLower(c.Param("model"))]
 	if !exists {
 		c.String(http.StatusNotFound, "Not found.")
 		return
 	}
 	page, err := strconv.Atoi(c.DefaultQuery("page", "0"))
-	count, err := strconv.Atoi(c.DefaultQuery("count", "100")) // TODO: don't hard code default
-	results, err := modelAdmin.Accessor.List(count, page)
+	count, _ := modelAdmin.Accessor.Count()
+	totalPages := count / pageSize
+	if remainder := math.Remainder(float64(count), float64(pageSize)); remainder > 0.0 {
+		totalPages += 1
+	}
+	numPages := int(math.Min(float64(showPageCount), float64(totalPages)))
+	pages := make([]int, numPages)
+	startPage := int(math.Max(0, float64(page-(numPages/2))))
+	endPage := int(math.Min(float64(totalPages-1), float64(startPage+numPages-1)))
+	startPage = int(math.Max(0, float64(endPage-(numPages-1))))
+	for i := 0; i < numPages; i++ {
+		pages[i] = startPage + i
+	}
+	results, err := modelAdmin.Accessor.List(pageSize, page)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -102,14 +154,32 @@ func listRoute(c *gin.Context) {
 		mapResults[i] = ValuesMapper(modelAdmin.ListFields, resultValues.Index(i).Interface())
 		pks[i] = modelAdmin.PKStringer.PKString(resultValues.Index(i).FieldByName(modelAdmin.PKFieldName).Interface())
 	}
-
-	obj := gin.H{"title": "GitLance Admin", "admins": modelAdmins,
-		"modelAdmin": modelAdmin, "results": mapResults, "pks": pks}
+	obj := gin.H{"brand": brand, "admins": modelAdmins,
+		"modelAdmin": modelAdmin, "results": mapResults, "pks": pks,
+		"page": page, "pages": pages, "lastPage": totalPages - 1}
 	c.HTML(200, "admin/list.html", obj)
 }
 
+func listUpdate(c *gin.Context) {
+	modelAdmin, exists := modelAdmins[strings.ToLower(c.Param("model"))]
+	if !exists {
+		c.String(http.StatusNotFound, "Not found.")
+		return
+	}
+	err := c.Request.ParseForm()
+	if err != nil {
+		log.Fatal(err)
+	}
+	action := c.PostForm("action")
+	if listAction, exists := modelAdmin.ListActions[action]; exists {
+		form := c.Request.Form
+		listAction.Action(&form)
+	}
+	list(c)
+}
+
 // change form for model, with actions as buttons
-func changeRoute(c *gin.Context) {
+func change(c *gin.Context) {
 	modelAdmin, exists := modelAdmins[strings.ToLower(c.Param("model"))]
 	if !exists {
 		c.String(http.StatusNotFound, "Not found.")
@@ -117,7 +187,7 @@ func changeRoute(c *gin.Context) {
 	}
 	pk := c.Param("pk")
 	if pk == "new" {
-		createRoute(c)
+		create(c)
 		return
 	}
 
@@ -133,13 +203,13 @@ func changeRoute(c *gin.Context) {
 		}
 		log.Fatal(err)
 	}
-	obj := gin.H{"title": "GitLance Admin", "admins": modelAdmins,
+	obj := gin.H{"brand": brand, "admins": modelAdmins,
 		"modelAdmin": modelAdmin, "values": ValuesMapper(modelAdmin.ChangeFields, result)}
 	c.HTML(200, "admin/change.html", obj)
 }
 
 // create form for model, with actions as buttons
-func createRoute(c *gin.Context) {
+func create(c *gin.Context) {
 	modelAdmin, exists := modelAdmins[strings.ToLower(c.Param("model"))]
 	if !exists {
 		c.String(http.StatusNotFound, "Not found.")
@@ -147,7 +217,7 @@ func createRoute(c *gin.Context) {
 	}
 
 	results := []string{"hi", "there"}
-	obj := gin.H{"title": "GitLance Admin", "admins": modelAdmins,
+	obj := gin.H{"brand": brand, "admins": modelAdmins,
 		"currentAdmin": modelAdmin, "results": results}
 	c.HTML(200, "admin/change.html", obj)
 }

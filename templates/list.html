@@ -9,7 +9,7 @@
 {{template "admin/bootstrap.html"}}
 
 <!-- Site Properities -->
-<title>{{.title}}</title>
+<title>{{.brand}}</title>
 
 </head>
   <body>
@@ -20,74 +20,87 @@
     {{ $values := .results}}
     {{ $modelAdmin := .modelAdmin}}
       <div>
-        <div class="dropdown" style="display:inline-block;">
-          <div class="dropdown-toggle" id="dropdownMenu2" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true">Actions<span class="caret"></span></div>
-          <ul class="dropdown-menu" aria-labelledby="dropdownMenu2">
-            <li><a href="#">Action</a></li>
-            <li><a href="#">Another action</a></li>
-            <li><a href="#">Something else here</a></li>
-            <li><a href="#">Separated link</a></li>
-          </ul>
-        </div>
-  
-        <table class="table table-striped well">
-          <th>
-            <input type="checkbox" id="selectAll">
-          </th>
-          {{range .modelAdmin.ListFields}}
-            <th>{{.}}</th>
-          {{end}}
-          {{range $row := $values}}
-            <tr>
-              <td><input type="checkbox" class="rowCheck"></td>
-              {{range $index, $field := $modelAdmin.ListFields}}
-                <td>
-                  {{ if eq $index 0}}<a href="{{index $.pks $index}}">{{end}}
-                  {{index $row $field}}
-                  {{ if eq $index 0}}</a>{{end}}                  
-                </td>
+        <form id="record-set" method="post">
+          <div style="display:inline-block;margin-bottom:10px;">
+            {{if $modelAdmin.ListActions}}
+              <select class="form-control" name="action">
+              <option value="">Actions</option>
+            {{else}}
+              <select class="form-control" disabled>
+              <option value="">No Actions Defined</option>
+            {{end}}
+              {{range $action := $modelAdmin.ListActions}}
+                <option value="{{$action.Identifier}}">{{$action.DisplayName}}</option>
               {{end}}
-            </tr>
+            </select>
+          </div>
+          {{if $modelAdmin.ListActions}}
+            <button type="submit" class="btn btn-default">Go</button>
+          {{else}}
+            <button type="submit" class="btn btn-default" disabled="disabled">Go</button>
           {{end}}
-        </table>
-  
+          <table class="table table-striped well" id="list-table">
+            <th>
+              <input type="checkbox" id="selectAll">
+            </th>
+            {{range .modelAdmin.ListFields}}
+              <th>{{.}}</th>
+            {{end}}
+            {{range $position, $row := $values}}
+              <tr>
+                <td><input type="checkbox" name="ids" class="rowCheck" value="{{index $.pks $position}}"></td>
+                {{range $index, $field := $modelAdmin.ListFields}}
+                  <td>
+                    {{ if eq $index 0}}<a href="{{index $.pks $position}}">{{end}}
+                    {{index $row $field}}
+                    {{ if eq $index 0}}</a>{{end}}                  
+                  </td>
+                {{end}}
+              </tr>
+            {{end}}
+          </table>
+        </form>
       </div>
-
-        <nav>
-          <ul class="pagination">
-            <li>
-              <a href="" aria-label="Previous">
-                <span aria-hidden="true">&laquo;</span>
-              </a>
-            </li>
-            <li><a href="">1</a></li>
-            <li><a href="">2</a></li>
-            <li><a href="">3</a></li>
-            <li><a href="">4</a></li>
-            <li><a href="">5</a></li>
-            <li>
-              <a href="" aria-label="Next">
-                <span aria-hidden="true">&raquo;</span>
-              </a>
-            </li>
-          </ul>
-          (To be implemented.)
-        </nav>
+    <nav>
+      {{ template "admin/paginator.html" .}}
+    </nav>
     </div> <!-- /container -->
     <script type="text/javascript">
+      var checkedIDs = [];
+      function updateCheckedIds () {
+        checkedIDs = []        
+        $("#list-table").find("input:checked").each(function(index){
+          if ($(this).hasClass("rowCheck")) {
+            checkedIDs.push($(this).attr("id"));
+          }
+        });
+      }
+
+      function confirmDelete() {
+        if (confirm("Are you sure you want to delete the selected records?")) {
+
+        }
+
+      }
       $(document).ready(function(){
+        $("#action-delete").click(function(){
+          confirmDelete();
+        });
+
         $("#selectAll").change(function(){
           if ($(this).is(":checked")) {
             $(":checkbox").prop("checked", true);
           } else {
-            $(":checkbox").prop("checked", false);            
+            $(":checkbox").prop("checked", false);
           }
+          updateCheckedIds();
         });
 
         $(".rowCheck").change(function(){
           if (! $(this).is(":checked")) {
             $("#selectAll").prop("checked", false);            
           }
+          updateCheckedIds();
         });
 
 
