@@ -19,6 +19,11 @@
     {{ template "admin/navbar.html" .}}
     {{ $values := .results}}
     {{ $modelAdmin := .modelAdmin}}
+      <ol class="breadcrumb">
+        <li><a href="/admin">Home</a></li>
+        <li class="active">{{.modelAdmin.ModelName}}</li>
+      </ol>
+
       <div>
         <form id="record-set" method="post">
           <div style="display:inline-block;margin-bottom:10px;">
@@ -35,10 +40,11 @@
             </select>
           </div>
           {{if $modelAdmin.ListActions}}
-            <button type="submit" class="btn btn-default">Go</button>
+            <button type="submit" id="go-button" class="btn btn-default">Go</button>
           {{else}}
             <button type="submit" class="btn btn-default" disabled="disabled">Go</button>
           {{end}}
+          <a href="add" class="btn btn-default">New</a>
           <table class="table table-striped well" id="list-table">
             <th>
               <input type="checkbox" id="selectAll">
@@ -77,15 +83,13 @@
       }
 
       function confirmDelete() {
-        if (confirm("Are you sure you want to delete the selected records?")) {
-
+        conf = confirm("Are you sure you want to delete the selected records?");
+        if (conf == true) {
+          $("#record-set").submit();
         }
-
       }
+
       $(document).ready(function(){
-        $("#action-delete").click(function(){
-          confirmDelete();
-        });
 
         $("#selectAll").change(function(){
           if ($(this).is(":checked")) {
@@ -94,6 +98,15 @@
             $(":checkbox").prop("checked", false);
           }
           updateCheckedIds();
+        });
+
+        $("#go-button").click(function(event){
+          if ($("select.form-control").val() == "delete-items") {
+            event.preventDefault();
+            confirmDelete();
+          } else {
+            $("#record-set").submit();
+          }
         });
 
         $(".rowCheck").change(function(){

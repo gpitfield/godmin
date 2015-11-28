@@ -15,22 +15,77 @@
   <body>
 
     <div class="container">
-    {{ $values := .values}}
-    {{range $field := .modelAdmin.ChangeFields}}
-      {{index $values $field}}
-    {{end}}
-    <br>
-    <br>
-    {{.values}}
-    <br>
-    <br>
-    {{.results}}
-
-    {{ template "admin/navbar.html" .}}
-    <div>
-    Und this will be zee change form.
-    </div>
-
+      {{$values := .values}}
+      {{ $modelAdmin := .modelAdmin}}
+      {{ template "admin/navbar.html" .}}
+      <ol class="breadcrumb">
+        <li><a href="/admin">Home</a></li>
+        <li><a href="/admin/{{.modelAdmin.ModelName | lower}}">{{.modelAdmin.ModelName}}</a></li>
+        <li class="active">{{.pk}}</li>
+      </ol>
+      <div class="row">
+        <div style="text-align:right;" class="col-sm-4 col-sm-offset-5">
+          <button type="submit" id="save-button" class="btn btn-default btn-primary">Save</button>
+          {{if not (eq .pk "add")}}
+            <button type="submit" id="save-continue-button" class="btn btn-default">Save and continue editing</button>
+            <button type="submit" id="delete-button" class="btn btn-default btn-danger">Delete</button>
+          {{else}}
+            <button type="submit" id="save-continue-button" class="btn btn-default">Save and add another</button>
+          {{end}}
+        </div>
+      </div>
+      <div style="height:10px;"></div>
+      <form method="post" class="form-horizontal" id="form">
+        <input type="hidden" name="action" value="save" id="form-action">
+        {{range $field, $value := $values}}
+          {{if not (index $modelAdmin.OmitFields $field)}}
+            <div class="form-group">
+              <div class="col-sm-2 control-label">
+                <label for="exampleInputEmail1">{{$field}}</label>
+              </div>
+              <div class="col-sm-7">
+                <input type="text" class="form-control" name="{{$field}}" value="{{$value}}" {{if (index $modelAdmin.ReadOnlyFields $field)}}disabled{{end}}>
+                {{if (index $modelAdmin.FieldNotes $field)}}<small> {{index $modelAdmin.FieldNotes $field}}</small>{{end}}
+              </div>
+            </div>
+          {{end}}
+        {{end}}
+      </form>
+      <div style="height:20px;width:100%;display:block;"></div>
     </div> <!-- /container -->
+    <script type="text/javascript">
+      var checkedIDs = [];
+      function updateCheckedIds () {
+        checkedIDs = []        
+        $("#list-table").find("input:checked").each(function(index){
+          if ($(this).hasClass("rowCheck")) {
+            checkedIDs.push($(this).attr("id"));
+          }
+        });
+      }
+
+      function confirmDelete() {
+        if (confirm("Are you sure you want to delete the selected records?")) {
+
+        }
+
+      }
+      $(document).ready(function(){
+        $("#save-button").click(function(){
+          $("#form-action").val("save");
+          $("#form").submit();
+        });
+        $("#save-continue-button").click(function(){
+          $("#form-action").val("save-continue");
+          $("#form").submit();
+        });
+        $("#delete-button").click(function(){
+          if (confirm("Are you sure you want to delete the selected records?")) {
+            $("#form-action").val("delete");
+            $("#form").submit();
+          }
+        });
+      });
+    </script>
   </body>
-  </html>
+</html>

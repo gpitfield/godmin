@@ -7,7 +7,7 @@ import (
 	// "errors"
 	// "html/template"
 	// "encoding/json"
-	// "fmt"
+	"fmt"
 	"log"
 	"math"
 	"net/http"
@@ -37,12 +37,15 @@ type AdminField struct {
 // The Accessor interface is implemented by types wishing to register their structs
 // with the admin. It enables the admin to read/write administered objects.
 type Accessor interface {
+	// Return an single empty instance of the model
+	Prototype() (result interface{})
 	// Must return a single struct of the administered type
 	Get(pk string) (result interface{}, err error)
 	// Must return a slice of structs of the administered type
 	List(count, page int) (results interface{}, err error)
 	Count() (count int, err error)
-	// Upsert(items []interface{}) error
+	Upsert(pk string, values *url.Values, readOnlyFields map[string]bool) (outPk string, err error)
+	Delete(pk string) (err error)
 }
 
 // convert the primary key to a string if it isn't one
@@ -52,24 +55,28 @@ type PKStringer interface {
 
 // meta information to register the model with the admin
 type ModelAdmin struct {
-	ModelName    string // database table/collection name
-	PKFieldName  string
-	ListFields   []string          // optional fields to be shown in list views.
-	ChangeFields []string          // optional fields to be shown in change view
-	FieldWidgets map[string]string // optional type of widget to render with
-	ListActions  map[string]*AdminAction
+	ModelName      string // database table/collection name
+	PKFieldName    string
+	ListFields     []string          // optional fields to be shown in list views.
+	OmitFields     map[string]bool   // optional fields to omit from change view
+	ReadOnlyFields map[string]bool   // optional read-only fields for change view
+	FieldNotes     map[string]string // optional note about the field
+	FieldWidgets   map[string]string // optional type of widget to render with
+	ListActions    map[string]*AdminAction
 	PKStringer
 	Accessor
 }
 
 func NewModelAdmin(modelName string, pkFieldName string, listFields []string,
-	changeFields []string, fieldWidgets map[string]string,
-	pkStringer PKStringer, accessor Accessor) (ma ModelAdmin) {
+	omitFields map[string]bool, readOnlyFields map[string]bool, fieldNotes map[string]string,
+	fieldWidgets map[string]string, pkStringer PKStringer, accessor Accessor) (ma ModelAdmin) {
 	ma = ModelAdmin{
 		modelName,
 		pkFieldName,
 		listFields,
-		changeFields,
+		omitFields,
+		readOnlyFields,
+		fieldNotes,
 		fieldWidgets,
 		make(map[string]*AdminAction),
 		pkStringer,
@@ -113,10 +120,16 @@ func Routes(r *gin.RouterGroup) {
 	r.Handle("GET", "/:model/", list)
 	r.Handle("POST", "/:model/", listUpdate)
 	r.Handle("GET", "/:model/:pk", change)
+	r.Handle("POST", "/:model/:pk", changeUpdate)
 }
 
 func index(c *gin.Context) {
-	obj := gin.H{"brand": brand, "admins": modelAdmins}
+	var objectCounts = make(map[string]int)
+	for model, admin := range modelAdmins {
+		count, _ := admin.Accessor.Count()
+		objectCounts[model] = count
+	}
+	obj := gin.H{"brand": brand, "admins": modelAdmins, "counts": objectCounts}
 	c.HTML(200, "admin/index.html", obj)
 }
 
@@ -151,7 +164,7 @@ func list(c *gin.Context) {
 	mapResults := make([]map[string]string, resultCount, resultCount)
 	pks := make([]string, resultCount, resultCount)
 	for i := 0; i < resultCount; i++ {
-		mapResults[i] = ValuesMapper(modelAdmin.ListFields, resultValues.Index(i).Interface())
+		mapResults[i] = ValuesMapper(resultValues.Index(i).Interface())
 		pks[i] = modelAdmin.PKStringer.PKString(resultValues.Index(i).FieldByName(modelAdmin.PKFieldName).Interface())
 	}
 	obj := gin.H{"brand": brand, "admins": modelAdmins,
@@ -186,7 +199,7 @@ func change(c *gin.Context) {
 		return
 	}
 	pk := c.Param("pk")
-	if pk == "new" {
+	if pk == "add" {
 		create(c)
 		return
 	}
@@ -204,8 +217,60 @@ func change(c *gin.Context) {
 		log.Fatal(err)
 	}
 	obj := gin.H{"brand": brand, "admins": modelAdmins,
-		"modelAdmin": modelAdmin, "values": ValuesMapper(modelAdmin.ChangeFields, result)}
+		"modelAdmin": modelAdmin, "values": ValuesMapper(result), "pk": pk}
 	c.HTML(200, "admin/change.html", obj)
+}
+
+func saveFromForm(c *gin.Context) {
+	modelAdmin, exists := modelAdmins[strings.ToLower(c.Param("model"))]
+	if !exists {
+		c.String(http.StatusNotFound, "Not found.")
+		return
+	}
+	pk := c.Param("pk")
+	if pk == "add" {
+		pk = ""
+	}
+	err := c.Request.ParseForm()
+	if err != nil {
+		log.Fatal(err)
+	}
+	form := c.Request.Form
+	_, err = modelAdmin.Accessor.Upsert(pk, &form, modelAdmin.ReadOnlyFields)
+	if err != nil {
+		if err.Error() == "Not Found" {
+			c.String(http.StatusNotFound, "Not found.")
+			return
+		}
+		if err.Error() == "Invalid ID" {
+			c.String(http.StatusNotFound, "Invalid ID.")
+			return
+		}
+		c.String(http.StatusNotAcceptable, err.Error())
+		return
+	}
+}
+
+func changeUpdate(c *gin.Context) {
+	action := c.DefaultPostForm("action", "save")
+	modelAdmin, exists := modelAdmins[strings.ToLower(c.Param("model"))]
+	if !exists {
+		c.String(http.StatusNotFound, "Not found.")
+		return
+	}
+	switch action {
+	case "save":
+		saveFromForm(c)
+		c.Request.Method = "GET"
+		c.Redirect(http.StatusFound, fmt.Sprintf("../%v", strings.ToLower(c.Param("model"))))
+	case "save-continue":
+		saveFromForm(c)
+		change(c)
+	case "delete":
+		modelAdmin.Accessor.Delete(c.Param("pk"))
+		c.Request.Method = "GET"
+		c.Redirect(http.StatusFound, fmt.Sprintf("../%v", strings.ToLower(c.Param("model"))))
+	}
 }
 
 // create form for model, with actions as buttons
@@ -215,9 +280,8 @@ func create(c *gin.Context) {
 		c.String(http.StatusNotFound, "Not found.")
 		return
 	}
-
-	results := []string{"hi", "there"}
+	result := modelAdmin.Accessor.Prototype()
 	obj := gin.H{"brand": brand, "admins": modelAdmins,
-		"currentAdmin": modelAdmin, "results": results}
+		"modelAdmin": modelAdmin, "pk": "add", "values": ValuesMapper(result)}
 	c.HTML(200, "admin/change.html", obj)
 }

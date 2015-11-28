@@ -13,17 +13,20 @@
 
 </head>
   <body>
-
+    {{$counts := .counts}}
     <div class="container">
-
       {{ template "admin/navbar.html" .}}
-
+      <table class="table">
+        <th>Model</th>
+        <th>Item Count</th>
         {{range .admins}}
-          <div>
-          	<a href="{{.ModelName | lower}}">{{.ModelName}}</a>
-          </div>
+          <tr>
+            <td><a href="{{.ModelName | lower}}">{{.ModelName}}</a></td>
+            <td>{{index $counts (.ModelName | lower)}}</td>
+          </tr>
+          </tr>
         {{end}}
-
+      </table>
     </div> <!-- /container -->
   </body>
   </html>
