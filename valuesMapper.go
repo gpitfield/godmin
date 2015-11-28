@@ -5,6 +5,7 @@ import (
 	"reflect"
 )
 
+// Maps arbitrary values to string representations for display in HTML
 func ValuesMapper(item interface{}) (out map[string]string) {
 	itemValue := reflect.ValueOf(item)
 	out = make(map[string]string)

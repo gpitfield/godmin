@@ -1,3 +1,4 @@
+Call init functions on insert (?) -> define an interface for hooks and call that if available
 Improve default widgets (bools)
 
 

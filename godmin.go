@@ -19,6 +19,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// AdminAction defines actions that can be taken on objects in the admin
 type AdminAction struct {
 	Identifier  string
 	DisplayName string
@@ -67,6 +68,7 @@ type ModelAdmin struct {
 	Accessor
 }
 
+// return a new ModelAdmin from the supplied arguments
 func NewModelAdmin(modelName string, pkFieldName string, listFields []string,
 	omitFields map[string]bool, readOnlyFields map[string]bool, fieldNotes map[string]string,
 	fieldWidgets map[string]string, pkStringer PKStringer, accessor Accessor) (ma ModelAdmin) {
@@ -85,6 +87,7 @@ func NewModelAdmin(modelName string, pkFieldName string, listFields []string,
 	return
 }
 
+// registers an AdminAction for use in the list view
 func (m *ModelAdmin) AddListAction(action *AdminAction) {
 	m.ListActions[action.Identifier] = action
 }
@@ -123,6 +126,7 @@ func Routes(r *gin.RouterGroup) {
 	r.Handle("POST", "/:model/:pk", changeUpdate)
 }
 
+// Admin home page
 func index(c *gin.Context) {
 	var objectCounts = make(map[string]int)
 	for model, admin := range modelAdmins {
@@ -173,6 +177,7 @@ func list(c *gin.Context) {
 	c.HTML(200, "admin/list.html", obj)
 }
 
+// handle actions to be executed on a set of objects from a model's list view
 func listUpdate(c *gin.Context) {
 	modelAdmin, exists := modelAdmins[strings.ToLower(c.Param("model"))]
 	if !exists {
@@ -221,6 +226,7 @@ func change(c *gin.Context) {
 	c.HTML(200, "admin/change.html", obj)
 }
 
+// upsert an object from HTML form values
 func saveFromForm(c *gin.Context) {
 	modelAdmin, exists := modelAdmins[strings.ToLower(c.Param("model"))]
 	if !exists {
@@ -251,6 +257,7 @@ func saveFromForm(c *gin.Context) {
 	}
 }
 
+// update an object from its change form
 func changeUpdate(c *gin.Context) {
 	action := c.DefaultPostForm("action", "save")
 	modelAdmin, exists := modelAdmins[strings.ToLower(c.Param("model"))]
