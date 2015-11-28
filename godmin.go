@@ -1,6 +1,6 @@
-// Package godmin provides an admin interface for mongoDB-backed
-// model to register with the godmin
-// provides its own templates which are namespaced under admin/
+// Package godmin provides an admin interface for arbitrary
+// structs to register with a gin-based html admin, similar to
+// Django's admin interface.
 package godmin
 
 import (
