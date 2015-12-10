@@ -1,6 +1,7 @@
 package godmin
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 )
@@ -9,6 +10,9 @@ import (
 func ValuesMapper(item interface{}) (out map[string]string) {
 	itemValue := reflect.ValueOf(item)
 	out = make(map[string]string)
+	if itemKind := itemValue.Kind(); itemKind != reflect.Struct {
+		return
+	}
 	var fieldInterface interface{}
 	var val reflect.Value
 	itemType := itemValue.Type()
@@ -21,7 +25,17 @@ func ValuesMapper(item interface{}) (out map[string]string) {
 			if ok {
 				out[fieldName] = v.String()
 			} else {
-				out[fieldName] = fmt.Sprintf("%v", fieldInterface)
+				switch val.Kind() {
+				case reflect.Slice, reflect.Struct:
+					jv, err := json.MarshalIndent(val.Interface(), "", "  ")
+					if err != nil {
+						fmt.Println(err)
+					} else {
+						out[fieldName] = fmt.Sprintf("%s", jv)
+					}
+				default:
+					out[fieldName] = fmt.Sprintf("%v", fieldInterface)
+				}
 			}
 		} else {
 			out[fieldName] = ""

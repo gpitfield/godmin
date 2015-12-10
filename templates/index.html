@@ -18,7 +18,7 @@
       {{ template "admin/navbar.html" .}}
       <table class="table">
         <th>Model</th>
-        <th>Item Count</th>
+        <th>Record Count</th>
         {{range .admins}}
           <tr>
             <td><a href="{{.ModelName | lower}}">{{.ModelName}}</a></td>

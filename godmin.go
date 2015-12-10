@@ -21,18 +21,12 @@ import (
 
 // AdminAction defines actions that can be taken on objects in the admin
 type AdminAction struct {
-	Identifier  string
-	DisplayName string
-	Action      func(values *url.Values) (err error)
-}
-
-type AdminField struct {
-	FieldName  string
-	FieldType  string
-	TextValue  string
-	FloatValue float64
-	IntValue   int
-	ReadOnly   bool
+	Identifier     string
+	DisplayName    string
+	Confirm        bool
+	ConfirmTitle   string
+	ConfirmMessage string
+	Action         func(values *url.Values) (err error)
 }
 
 // The Accessor interface is implemented by types wishing to register their structs
@@ -40,14 +34,19 @@ type AdminField struct {
 type Accessor interface {
 	// Return an single empty instance of the model
 	Prototype() (result interface{})
+	PrototypePtr() (result *struct{})
 	// Must return a single struct of the administered type
 	Get(pk string) (result interface{}, err error)
 	// Must return a slice of structs of the administered type
 	List(count, page int) (results interface{}, err error)
 	Count() (count int, err error)
-	Upsert(pk string, values *url.Values, readOnlyFields map[string]bool) (outPk string, err error)
+	Upsert(pk string, item interface{}) (outPk string, err error)
 	Delete(pk string) (err error)
 }
+
+// type Structer interface {
+// 	ProtoStruct() (result struct{})
+// }
 
 // convert the primary key to a string if it isn't one
 type PKStringer interface {
@@ -58,7 +57,7 @@ type PKStringer interface {
 type ModelAdmin struct {
 	ModelName      string // database table/collection name
 	PKFieldName    string
-	ListFields     []string          // optional fields to be shown in list views.
+	ListFields     map[string]bool   // optional fields to be shown in list views.
 	OmitFields     map[string]bool   // optional fields to omit from change view
 	ReadOnlyFields map[string]bool   // optional read-only fields for change view
 	FieldNotes     map[string]string // optional note about the field
@@ -69,7 +68,7 @@ type ModelAdmin struct {
 }
 
 // return a new ModelAdmin from the supplied arguments
-func NewModelAdmin(modelName string, pkFieldName string, listFields []string,
+func NewModelAdmin(modelName string, pkFieldName string, listFields map[string]bool,
 	omitFields map[string]bool, readOnlyFields map[string]bool, fieldNotes map[string]string,
 	fieldWidgets map[string]string, pkStringer PKStringer, accessor Accessor) (ma ModelAdmin) {
 	ma = ModelAdmin{
@@ -111,9 +110,12 @@ func SetPageSize(p int) {
 func Register(ma ModelAdmin) {
 	lcModelName := strings.ToLower(ma.ModelName)
 	if _, exists := modelAdmins[lcModelName]; exists {
-		log.Fatalln(ma.ModelName, "Model Admin already registered")
+		log.Println(ma.ModelName, "Model Admin already registered")
 	}
 	log.Println("Registering", ma.ModelName, "admin")
+	if ma.FieldWidgets == nil {
+		ma.FieldWidgets = defaultWidgets(ma)
+	}
 	modelAdmins[lcModelName] = ma
 }
 
@@ -165,10 +167,10 @@ func list(c *gin.Context) {
 
 	resultValues := reflect.ValueOf(results)
 	resultCount := resultValues.Len()
-	mapResults := make([]map[string]string, resultCount, resultCount)
+	mapResults := make([][]AdminField, resultCount, resultCount)
 	pks := make([]string, resultCount, resultCount)
 	for i := 0; i < resultCount; i++ {
-		mapResults[i] = ValuesMapper(resultValues.Index(i).Interface())
+		mapResults[i] = Marshal(resultValues.Index(i).Interface(), modelAdmin, "")
 		pks[i] = modelAdmin.PKStringer.PKString(resultValues.Index(i).FieldByName(modelAdmin.PKFieldName).Interface())
 	}
 	obj := gin.H{"brand": brand, "admins": modelAdmins,
@@ -228,7 +230,7 @@ func change(c *gin.Context) {
 
 // upsert an object from HTML form values
 func saveFromForm(c *gin.Context) {
-	modelAdmin, exists := modelAdmins[strings.ToLower(c.Param("model"))]
+	_, exists := modelAdmins[strings.ToLower(c.Param("model"))]
 	if !exists {
 		c.String(http.StatusNotFound, "Not found.")
 		return
@@ -242,7 +244,9 @@ func saveFromForm(c *gin.Context) {
 		log.Fatal(err)
 	}
 	form := c.Request.Form
-	_, err = modelAdmin.Accessor.Upsert(pk, &form, modelAdmin.ReadOnlyFields)
+	fmt.Println("form", form.Get("Languages"))
+	// proto := modelAdmin.Accessor.Prototype()
+	// _, err = modelAdmin.Accessor.Upsert(pk, proto)
 	if err != nil {
 		if err.Error() == "Not Found" {
 			c.String(http.StatusNotFound, "Not found.")

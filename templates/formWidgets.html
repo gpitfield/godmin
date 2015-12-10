@@ -1,0 +1,32 @@
+{{range $field, $value := .values}}
+  {{if not (index $.modelAdmin.OmitFields $field)}}
+    <div class="form-group">
+      <div class="col-sm-2 control-label">
+        <label for="exampleInputEmail1">{{$field}}</label>
+      </div>
+      <div class="col-sm-7">
+      {{if eq (index $.modelAdmin.FieldWidgets $field) "textarea"}}
+        <textarea class="form-control" rows="10" name="{{$field}}">{{$value}}</textarea>
+      {{else if eq (index $.modelAdmin.FieldWidgets $field) "radio"}}
+        <label class="radio-inline">
+          <input type="{{index $.modelAdmin.FieldWidgets $field}}" name="{{$field}}"
+          {{if (index $.modelAdmin.ReadOnlyFields $field)}}disabled{{end}}
+            {{ if eq $value "true"}}checked{{end}}
+          value="true"> True
+        </label>
+        <label class="radio-inline">
+          <input type="{{index $.modelAdmin.FieldWidgets $field}}" name="{{$field}}"
+          {{if (index $.modelAdmin.ReadOnlyFields $field)}}disabled{{end}}
+            {{ if eq $value "false"}}checked{{end}}
+          value="false"> False
+        </label>
+      {{else}}
+        <input type="{{index $.modelAdmin.FieldWidgets $field}}" name="{{$field}}"
+        {{if (index $.modelAdmin.ReadOnlyFields $field)}}disabled{{end}}
+        class="form-control" value="{{$value}}">
+      {{end}}
+      {{if (index $.modelAdmin.FieldNotes $field)}}<small> {{index $.modelAdmin.FieldNotes $field}}</small>{{end}}
+      </div>
+    </div>
+  {{end}}
+{{end}}

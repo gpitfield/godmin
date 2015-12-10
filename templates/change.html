@@ -37,19 +37,7 @@
       <div style="height:10px;"></div>
       <form method="post" class="form-horizontal" id="form">
         <input type="hidden" name="action" value="save" id="form-action">
-        {{range $field, $value := $values}}
-          {{if not (index $modelAdmin.OmitFields $field)}}
-            <div class="form-group">
-              <div class="col-sm-2 control-label">
-                <label for="exampleInputEmail1">{{$field}}</label>
-              </div>
-              <div class="col-sm-7">
-                <input type="text" class="form-control" name="{{$field}}" value="{{$value}}" {{if (index $modelAdmin.ReadOnlyFields $field)}}disabled{{end}}>
-                {{if (index $modelAdmin.FieldNotes $field)}}<small> {{index $modelAdmin.FieldNotes $field}}</small>{{end}}
-              </div>
-            </div>
-          {{end}}
-        {{end}}
+        {{template "admin/formWidgets.html" .}}
       </form>
       <div style="height:20px;width:100%;display:block;"></div>
     </div> <!-- /container -->

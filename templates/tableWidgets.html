@@ -1,0 +1,22 @@
+{{range $position, $record := .results}}
+  <tr>
+    <td><input type="checkbox" name="ids" class="rowCheck" value="{{index $.pks $position}}"></td>
+    {{range $index, $field := $record}}
+      {{if $field.List}}
+        <td>
+          {{ if eq $index 0}}<a href="{{index $.pks $position}}">{{end}}
+            {{if eq (index $.modelAdmin.FieldWidgets $field.Identifier) "radio"}}
+              {{ if eq $field.Value "true"}}
+                <span class="glyphicon glyphicon-ok-circle" style="color:green" aria-hidden="true"></span>
+              {{ else}}
+                <span class="glyphicon glyphicon-ban-circle" style="color:red" aria-hidden="true"></span>
+              {{end}}
+            {{else}}
+              {{$field.Value}}
+            {{end}}
+          {{ if eq $index 0}}</a>{{end}}                  
+        </td>
+      {{end}}
+    {{end}}
+  </tr>
+{{end}}

@@ -15,7 +15,6 @@
   <body>
 
     <div class="container">
-
     {{ template "admin/navbar.html" .}}
     {{ $values := .results}}
     {{ $modelAdmin := .modelAdmin}}
@@ -49,28 +48,23 @@
             <th>
               <input type="checkbox" id="selectAll">
             </th>
-            {{range .modelAdmin.ListFields}}
-              <th>{{.}}</th>
+            {{range $key, $val := .modelAdmin.ListFields}}
+              <th>{{$key}}</th>
             {{end}}
-            {{range $position, $row := $values}}
-              <tr>
-                <td><input type="checkbox" name="ids" class="rowCheck" value="{{index $.pks $position}}"></td>
-                {{range $index, $field := $modelAdmin.ListFields}}
-                  <td>
-                    {{ if eq $index 0}}<a href="{{index $.pks $position}}">{{end}}
-                    {{index $row $field}}
-                    {{ if eq $index 0}}</a>{{end}}                  
-                  </td>
-                {{end}}
-              </tr>
-            {{end}}
+            {{template "admin/tableWidgets.html" .}}
           </table>
         </form>
       </div>
     <nav>
       {{ template "admin/paginator.html" .}}
     </nav>
+    {{range $modelAdmin.ListActions}}
+      {{if .Confirm}}
+        {{ template "admin/confirmModal.html" .}}
+      {{end}}
+    {{end}}
     </div> <!-- /container -->
+
     <script type="text/javascript">
       var checkedIDs = [];
       function updateCheckedIds () {
@@ -81,16 +75,21 @@
           }
         });
       }
+      function doConfirm (action) {
+        var actionID = "#" + action + "-confirm";
+        if ($(actionID)) {
 
-      function confirmDelete() {
-        conf = confirm("Are you sure you want to delete the selected records?");
-        if (conf == true) {
+          $(actionID).modal('show');
+        } else {
           $("#record-set").submit();
         }
       }
 
-      $(document).ready(function(){
+      function confirmAction(event) {
+        $("#record-set").submit();
+      }
 
+      $(document).ready(function(){
         $("#selectAll").change(function(){
           if ($(this).is(":checked")) {
             $(":checkbox").prop("checked", true);
@@ -101,12 +100,9 @@
         });
 
         $("#go-button").click(function(event){
-          if ($("select.form-control").val() == "delete-items") {
-            event.preventDefault();
-            confirmDelete();
-          } else {
-            $("#record-set").submit();
-          }
+          var action = $("select.form-control").val();
+          event.preventDefault();
+          doConfirm(action);
         });
 
         $(".rowCheck").change(function(){
@@ -116,8 +112,13 @@
           updateCheckedIds();
         });
 
+        $(".modal-confirm").click(function(event){
+          confirmAction(event);
+        });
+
 
       });
     </script>
+
   </body>
   </html>
