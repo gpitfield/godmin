@@ -1,5 +1,10 @@
-Deal with organizing list fields -> make Marshal map[string]AdminField?
+Search
+Fix list views 
+	-> table headers are mismatched
+	-> can't select row checkbox w/o inadvertently clicking on row
 
+
+Deal with organizing list fields -> make Marshal map[string]AdminField?
 newModelAdmin should just take lists of field names and convert those to maps
 
 
@@ -10,9 +15,6 @@ wwwform
 
 structmap
 	Unmarshal map[string]interface{} to interface{} (struct)
-
-
-
 
 
 admin struct tags:
@@ -27,18 +29,8 @@ Take struct and marshal into
 	map[string]interface{} ?
 	map[string] someType
 
-type AdminField struct {
-	Name string // object attribute name
-	identifier string // parentIdentifier + self Identifier
-	value string
-	type string
-	children []AdminField -> this can be either fields, or field type "struct" for lists
-	(do this last)
-}
 
 slice, struct html includes a "delete" checkbox which removes them
-
-
 
 
 Call init functions on insert (?) -> define an interface for hooks and call that if available

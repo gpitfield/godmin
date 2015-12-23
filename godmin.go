@@ -40,7 +40,7 @@ type Accessor interface {
 	// Must return a slice of structs of the administered type
 	List(count, page int) (results interface{}, err error)
 	Count() (count int, err error)
-	Upsert(pk string, item interface{}) (outPk string, err error)
+	Upsert(pk string, values map[string][]string) (outPk string, err error)
 	Delete(pk string) (err error)
 }
 
@@ -230,7 +230,7 @@ func change(c *gin.Context) {
 
 // upsert an object from HTML form values
 func saveFromForm(c *gin.Context) {
-	_, exists := modelAdmins[strings.ToLower(c.Param("model"))]
+	modelAdmin, exists := modelAdmins[strings.ToLower(c.Param("model"))]
 	if !exists {
 		c.String(http.StatusNotFound, "Not found.")
 		return
@@ -244,9 +244,11 @@ func saveFromForm(c *gin.Context) {
 		log.Fatal(err)
 	}
 	form := c.Request.Form
-	fmt.Println("form", form.Get("Languages"))
+	fmt.Println("form", form)
+	objectMap := Unmarshal(form, &modelAdmin)
+	fmt.Println(objectMap)
 	// proto := modelAdmin.Accessor.Prototype()
-	// _, err = modelAdmin.Accessor.Upsert(pk, proto)
+	_, err = modelAdmin.Accessor.Upsert(pk, objectMap)
 	if err != nil {
 		if err.Error() == "Not Found" {
 			c.String(http.StatusNotFound, "Not found.")
@@ -264,6 +266,7 @@ func saveFromForm(c *gin.Context) {
 // update an object from its change form
 func changeUpdate(c *gin.Context) {
 	action := c.DefaultPostForm("action", "save")
+	delete(c.Request.Form, "action") // don't keep this as part of the object
 	modelAdmin, exists := modelAdmins[strings.ToLower(c.Param("model"))]
 	if !exists {
 		c.String(http.StatusNotFound, "Not found.")

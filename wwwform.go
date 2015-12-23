@@ -66,6 +66,14 @@ func Marshal(in interface{}, admin ModelAdmin, idPrefix string) []AdminField {
 		case reflect.Bool:
 			value = strconv.FormatBool(field.Bool())
 		case reflect.Struct:
+			// use Stringer interface if present
+			fieldInterface := field.Interface()
+			v, ok := fieldInterface.(fmt.Stringer)
+			if ok {
+				value = v.String()
+				continue
+			}
+			// otherwise, nest it
 			af.Children = Marshal(field.Interface(), admin, af.Identifier)
 		case reflect.Slice:
 			for c := 0; c < field.Len(); c++ {
@@ -97,8 +105,18 @@ func Marshal(in interface{}, admin ModelAdmin, idPrefix string) []AdminField {
 	return out
 }
 
-// Unmarshal values with identfiers provided by Marshal into a map
-// url.Values are map[string][]string
-func Unmarshal(values url.Values) map[string]interface{} {
-	return nil
+// Unmarshal values with identfiers provided by Marshal into a map[string][]string
+// excluding Omit and ReadOnly fields
+func Unmarshal(values url.Values, modelAdmin *ModelAdmin) (out map[string][]string) {
+	out = make(map[string][]string)
+	for key, val := range values {
+		if _, skip := modelAdmin.ReadOnlyFields[key]; skip {
+			continue
+		}
+		if _, skip := modelAdmin.OmitFields[key]; skip {
+			continue
+		}
+		out[key] = val
+	}
+	return
 }
