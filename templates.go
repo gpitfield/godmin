@@ -14,7 +14,7 @@ func ParseTemplates(t *template.Template) {
 	loadTemplates(t, "index.html",
 		"list.html", "change.html", "bootstrap.html",
 		"navbar.html", "paginator.html", "confirmModal.html",
-		"tableWidgets.html", "formWidgets.html")
+		"tableWidgets.html", "formWidgets.html", "error.html")
 }
 
 func loadTemplates(templates *template.Template, list ...string) {

@@ -18,7 +18,11 @@
         </ul>
         {{end}}
         <ul class="nav navbar-nav navbar-right">
-            <li><a href="#" class="btn disabled">Sign in</a></li>    
+        {{if .userId}}
+            <li><a href="{{.logoutURL}}" class="btn">Hello, {{.username}} (Log out)</a></li>    
+        {{else}}
+            <li><a href="{{.loginURL}}?next=/admin" class="btn">Log in</a></li>    
+        {{end}}
         </ul>
       </div><!--/.nav-collapse -->
   </div><!--/.container-fluid -->

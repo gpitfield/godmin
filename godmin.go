@@ -29,6 +29,16 @@ type AdminAction struct {
 	Action         func(values *url.Values) (err error)
 }
 
+// The Authenticator interface manages admin rights. If no Authenticator is provided, the admin is completely open.
+// This is of course strongly not recommended.
+type Authenticator interface {
+	// middleware handler that validates whether a user is logged in,
+	// and sets the "username", "userId" values in the context variable if so
+	IsAdmin(c *gin.Context) (ok bool)
+	// function that returns whether the request has the necessary privilege for the desired operation
+	HasPrivilege(c *gin.Context, collection string, action string, ids []string) (ok bool)
+}
+
 // The Accessor interface is implemented by types wishing to register their structs
 // with the admin. It enables the admin to read/write administered objects.
 type Accessor interface {
@@ -91,10 +101,28 @@ func (m *ModelAdmin) AddListAction(action *AdminAction) {
 	m.ListActions[action.Identifier] = action
 }
 
-var modelAdmins = make(map[string]ModelAdmin)
-var brand = "Golang Admin"
-var pageSize = 100
-var showPageCount = 8
+var (
+	adminPath     = "/admin"
+	userIdKey     = "userId"
+	usernameKey   = "username"
+	modelAdmins   = make(map[string]ModelAdmin)
+	brand         = "Golang Admin"
+	pageSize      = 100
+	showPageCount = 8
+	loginURL      string
+	logoutURL     string
+	authenticator Authenticator
+)
+
+//set set the Admin path
+func SetAdminPath(p string) {
+	adminPath = p
+}
+
+// set the Authenticator
+func SetAuthenticator(a Authenticator) {
+	authenticator = a
+}
 
 // set the Brand name to show
 func SetBrand(b string) {
@@ -104,6 +132,16 @@ func SetBrand(b string) {
 // set the list page size
 func SetPageSize(p int) {
 	pageSize = p
+}
+
+// set the URL where a user can log in
+func SetLoginURL(url string) {
+	loginURL = url
+}
+
+// set the URL where a user can log out
+func SetLogoutURL(url string) {
+	logoutURL = url
 }
 
 // register a ModelAdmin instance to be available in the admin
@@ -119,6 +157,19 @@ func Register(ma ModelAdmin) {
 	modelAdmins[lcModelName] = ma
 }
 
+func defaultDot(c *gin.Context) map[string]interface{} {
+	dot := gin.H{"brand": brand, "adminPath": adminPath, "loginURL": loginURL, "logoutURL": logoutURL,
+		"admins": modelAdmins}
+	if userId, exists := c.Get(userIdKey); exists {
+		dot["userId"] = userId
+	}
+	if username, exists := c.Get(usernameKey); exists {
+		dot["username"] = username
+	}
+	return dot
+}
+
+// set up the admin Routes, and add in the Authenticator middleware if present
 func Routes(r *gin.RouterGroup) {
 	// root level is list of admin models
 	r.Handle("GET", "/", index)
@@ -128,15 +179,35 @@ func Routes(r *gin.RouterGroup) {
 	r.Handle("POST", "/:model/:pk", changeUpdate)
 }
 
+// Check for permission issues via the status code set by the Authenticator
+func hasPermissions(c *gin.Context, collection string, action string, ids []string) (ok bool) {
+	dot := defaultDot(c)
+	if !authenticator.IsAdmin(c) {
+		dot["error"] = "Please log in with an admin account."
+		c.HTML(200, "admin/error.html", dot)
+		return false
+	}
+	if !authenticator.HasPrivilege(c, collection, action, ids) {
+		dot["error"] = "You don't have the necessary permissions to do that."
+		c.HTML(200, "admin/error.html", dot)
+		return false
+	}
+	return true
+}
+
 // Admin home page
 func index(c *gin.Context) {
+	if !hasPermissions(c, "", "read", nil) {
+		return
+	}
 	var objectCounts = make(map[string]int)
 	for model, admin := range modelAdmins {
 		count, _ := admin.Accessor.Count()
 		objectCounts[model] = count
 	}
-	obj := gin.H{"brand": brand, "admins": modelAdmins, "counts": objectCounts}
-	c.HTML(200, "admin/index.html", obj)
+	dot := defaultDot(c)
+	dot["counts"] = objectCounts
+	c.HTML(200, "admin/index.html", dot)
 }
 
 // list of model instances, with dropdown actions and checkboxes
@@ -144,6 +215,9 @@ func list(c *gin.Context) {
 	modelAdmin, exists := modelAdmins[strings.ToLower(c.Param("model"))]
 	if !exists {
 		c.String(http.StatusNotFound, "Not found.")
+		return
+	}
+	if !hasPermissions(c, modelAdmin.ModelName, "read", nil) {
 		return
 	}
 	page, err := strconv.Atoi(c.DefaultQuery("page", "0"))
@@ -173,10 +247,14 @@ func list(c *gin.Context) {
 		mapResults[i] = Marshal(resultValues.Index(i).Interface(), modelAdmin, "")
 		pks[i] = modelAdmin.PKStringer.PKString(resultValues.Index(i).FieldByName(modelAdmin.PKFieldName).Interface())
 	}
-	obj := gin.H{"brand": brand, "admins": modelAdmins,
-		"modelAdmin": modelAdmin, "results": mapResults, "pks": pks,
-		"page": page, "pages": pages, "lastPage": totalPages - 1}
-	c.HTML(200, "admin/list.html", obj)
+	dot := defaultDot(c)
+	dot["modelAdmin"] = modelAdmin
+	dot["results"] = mapResults
+	dot["pks"] = pks
+	dot["page"] = page
+	dot["pages"] = pages
+	dot["lastPage"] = totalPages - 1
+	c.HTML(200, "admin/list.html", dot)
 }
 
 // handle actions to be executed on a set of objects from a model's list view
@@ -184,6 +262,9 @@ func listUpdate(c *gin.Context) {
 	modelAdmin, exists := modelAdmins[strings.ToLower(c.Param("model"))]
 	if !exists {
 		c.String(http.StatusNotFound, "Not found.")
+		return
+	}
+	if !hasPermissions(c, modelAdmin.ModelName, "write", nil) { // TODO: add in the IDs
 		return
 	}
 	err := c.Request.ParseForm()
@@ -207,10 +288,14 @@ func change(c *gin.Context) {
 	}
 	pk := c.Param("pk")
 	if pk == "add" {
-		create(c)
+		if hasPermissions(c, modelAdmin.ModelName, "create", nil) {
+			create(c)
+		}
 		return
 	}
-
+	if !hasPermissions(c, modelAdmin.ModelName, "write", []string{pk}) {
+		return
+	}
 	result, err := modelAdmin.Accessor.Get(pk)
 	if err != nil {
 		if err.Error() == "Not Found" {
@@ -223,9 +308,11 @@ func change(c *gin.Context) {
 		}
 		log.Fatal(err)
 	}
-	obj := gin.H{"brand": brand, "admins": modelAdmins,
-		"modelAdmin": modelAdmin, "values": ValuesMapper(result), "pk": pk}
-	c.HTML(200, "admin/change.html", obj)
+	dot := defaultDot(c)
+	dot["modelAdmin"] = modelAdmin
+	dot["values"] = ValuesMapper(result)
+	dot["pk"] = pk
+	c.HTML(200, "admin/change.html", dot)
 }
 
 // upsert an object from HTML form values
@@ -272,6 +359,9 @@ func changeUpdate(c *gin.Context) {
 		c.String(http.StatusNotFound, "Not found.")
 		return
 	}
+	if !hasPermissions(c, modelAdmin.ModelName, "write", nil) { // TODO: add in the ID(s)
+		return
+	}
 	switch action {
 	case "save":
 		saveFromForm(c)
@@ -295,7 +385,9 @@ func create(c *gin.Context) {
 		return
 	}
 	result := modelAdmin.Accessor.Prototype()
-	obj := gin.H{"brand": brand, "admins": modelAdmins,
-		"modelAdmin": modelAdmin, "pk": "add", "values": ValuesMapper(result)}
-	c.HTML(200, "admin/change.html", obj)
+	dot := defaultDot(c)
+	dot["modelAdmin"] = modelAdmin
+	dot["pk"] = "add"
+	dot["values"] = ValuesMapper(result)
+	c.HTML(200, "admin/change.html", dot)
 }
