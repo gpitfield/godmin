@@ -58,7 +58,14 @@ func Marshal(in interface{}, admin ModelAdmin, idPrefix string) []AdminField {
 		af.Type = strings.ToLower(kind.String())
 		switch kind {
 		case reflect.String:
-			value = field.String()
+			// check to see if the object has its own String() method (e.g. bson.ObjectId)
+			fieldInterface := field.Interface()
+			v, ok := fieldInterface.(fmt.Stringer)
+			if ok {
+				value = v.String()
+			} else {
+				value = field.String()
+			}
 		case reflect.Int:
 			value = strconv.FormatInt(field.Int(), 10)
 		case reflect.Float64:
@@ -71,10 +78,10 @@ func Marshal(in interface{}, admin ModelAdmin, idPrefix string) []AdminField {
 			v, ok := fieldInterface.(fmt.Stringer)
 			if ok {
 				value = v.String()
-				continue
+			} else { // otherwise, nest it
+				af.Children = Marshal(field.Interface(), admin, af.Identifier)
 			}
-			// otherwise, nest it
-			af.Children = Marshal(field.Interface(), admin, af.Identifier)
+
 		case reflect.Slice:
 			for c := 0; c < field.Len(); c++ {
 				sliceKind := field.Index(c).Kind()
@@ -95,7 +102,6 @@ func Marshal(in interface{}, admin ModelAdmin, idPrefix string) []AdminField {
 				v, ok := fieldInterface.(fmt.Stringer)
 				if ok {
 					value = v.String()
-					continue
 				}
 			}
 		}

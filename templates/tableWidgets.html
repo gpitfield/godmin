@@ -1,19 +1,21 @@
 {{range $position, $record := .results}}
   <tr onclick="document.location = {{index $.pks $position}}">
     <td><input type="checkbox" name="ids" class="rowCheck" value="{{index $.pks $position}}"></td>
-    {{range $index, $field := $record}}
-      {{if $field.List}}
-        <td>
-            {{if eq (index $.modelAdmin.FieldWidgets $field.Identifier) "radio"}}
-              {{ if eq $field.Value "true"}}
-                <span class="glyphicon glyphicon-ok-circle" style="color:green" aria-hidden="true"></span>
-              {{ else}}
-                <span class="glyphicon glyphicon-ban-circle" style="color:red" aria-hidden="true"></span>
+    {{range $listField, $ignore := $.modelAdmin.ListFields}}
+      {{range $index, $field := $record}}
+        {{if eq $field.Identifier $listField}}
+          <td>
+              {{if eq (index $.modelAdmin.FieldWidgets $field.Identifier) "radio"}}
+                {{ if eq $field.Value "true"}}
+                  <span class="glyphicon glyphicon-ok-circle" style="color:green" aria-hidden="true"></span>
+                {{ else}}
+                  <span class="glyphicon glyphicon-ban-circle" style="color:red" aria-hidden="true"></span>
+                {{end}}
+              {{else}}
+                {{$field.Value}}
               {{end}}
-            {{else}}
-              {{$field.Value}}
-            {{end}}
-        </td>
+          </td>
+        {{end}}
       {{end}}
     {{end}}
   </tr>

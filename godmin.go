@@ -64,6 +64,9 @@ type PKStringer interface {
 }
 
 // meta information to register the model with the admin
+// note that field order is controlled by the admin, which currently sorts alphabetically by field name
+// which is the default result of iterating a map in a template.
+// TODO: we may want to revisit this approach to ordering.
 type ModelAdmin struct {
 	ModelName      string // database table/collection name
 	PKFieldName    string

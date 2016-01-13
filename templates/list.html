@@ -111,6 +111,9 @@
           }
           updateCheckedIds();
         });
+        $(".rowCheck").click(function(event){
+          event.stopPropagation();
+        });
 
         $(".modal-confirm").click(function(event){
           confirmAction(event);
