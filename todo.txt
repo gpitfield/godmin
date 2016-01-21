@@ -1,14 +1,7 @@
-
-Fix list views 
-	-> table headers are mismatched
-	-> can't select row checkbox w/o inadvertently clicking on row
-	-> timestamp doesn't render properly
-Deal with organizing list fields -> make Marshal map[string]AdminField?
-
-Make sure update works properly - overwriting nil fields
+Make it easier to spec readonly fields, etc. Map is a kludge, should just be a list
+fix crash when single page of results "Can't canonicalize query: BadValue bad skip value in query"
 
 Search
-
 
 
 Call init functions on insert (?) -> define an interface for hooks and call that if available
