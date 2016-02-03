@@ -33,7 +33,7 @@ type AdminAction struct {
 // This is of course strongly not recommended.
 type Authenticator interface {
 	// middleware handler that validates whether a user is logged in,
-	// and sets the "username", "userId" values in the context variable if so
+	// and sets the "username", "accountId" values in the context variable if so
 	IsAdmin(c *gin.Context) (ok bool)
 	// function that returns whether the request has the necessary privilege for the desired operation
 	HasPrivilege(c *gin.Context, collection string, action string, ids []string) (ok bool)
@@ -106,7 +106,7 @@ func (m *ModelAdmin) AddListAction(action *AdminAction) {
 
 var (
 	adminPath     = "/admin"
-	userIdKey     = "userId"
+	accountIdKey  = "accountId"
 	usernameKey   = "username"
 	modelAdmins   = make(map[string]ModelAdmin)
 	brand         = "Golang Admin"
@@ -163,8 +163,8 @@ func Register(ma ModelAdmin) {
 func defaultDot(c *gin.Context) map[string]interface{} {
 	dot := gin.H{"brand": brand, "adminPath": adminPath, "loginURL": loginURL, "logoutURL": logoutURL,
 		"admins": modelAdmins}
-	if userId, exists := c.Get(userIdKey); exists {
-		dot["userId"] = userId
+	if accountId, exists := c.Get(accountIdKey); exists {
+		dot["accountId"] = accountId
 	}
 	if username, exists := c.Get(usernameKey); exists {
 		dot["username"] = username
