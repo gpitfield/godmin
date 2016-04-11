@@ -8,6 +8,7 @@ import (
 
 // Maps arbitrary values to string representations for display in HTML
 func ValuesMapper(item interface{}) (out map[string]string) {
+	fmt.Println("entering ValuesMapper")
 	itemValue := reflect.ValueOf(item)
 	out = make(map[string]string)
 	if itemKind := itemValue.Kind(); itemKind != reflect.Struct {
@@ -41,5 +42,6 @@ func ValuesMapper(item interface{}) (out map[string]string) {
 			out[fieldName] = ""
 		}
 	}
+	fmt.Println("leaving ValuesMapper")
 	return out
 }

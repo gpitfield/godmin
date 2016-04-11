@@ -239,7 +239,7 @@ func list(c *gin.Context) {
 	}
 	results, err := modelAdmin.Accessor.List(pageSize, page)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("error in godmin list:", err)
 	}
 
 	resultValues := reflect.ValueOf(results)
@@ -320,6 +320,7 @@ func change(c *gin.Context) {
 
 // upsert an object from HTML form values
 func saveFromForm(c *gin.Context) {
+	fmt.Println("hitting SaveFromForm")
 	modelAdmin, exists := modelAdmins[strings.ToLower(c.Param("model"))]
 	if !exists {
 		c.String(http.StatusNotFound, "Not found.")
@@ -340,6 +341,7 @@ func saveFromForm(c *gin.Context) {
 	// proto := modelAdmin.Accessor.Prototype()
 	_, err = modelAdmin.Accessor.Upsert(pk, objectMap)
 	if err != nil {
+		log.Println(err)
 		if err.Error() == "Not Found" {
 			c.String(http.StatusNotFound, "Not found.")
 			return
@@ -355,6 +357,7 @@ func saveFromForm(c *gin.Context) {
 
 // update an object from its change form
 func changeUpdate(c *gin.Context) {
+	fmt.Println("hitting changeUpdate")
 	action := c.DefaultPostForm("action", "save")
 	delete(c.Request.Form, "action") // don't keep this as part of the object
 	modelAdmin, exists := modelAdmins[strings.ToLower(c.Param("model"))]
