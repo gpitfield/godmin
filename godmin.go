@@ -226,7 +226,7 @@ func list(c *gin.Context) {
 	page, err := strconv.Atoi(c.DefaultQuery("page", "0"))
 	count, _ := modelAdmin.Accessor.Count()
 	totalPages := count / pageSize
-	if remainder := math.Remainder(float64(count), float64(pageSize)); remainder > 0.0 {
+	if remainder := math.Mod(float64(count), float64(pageSize)); remainder > 0.0 {
 		totalPages += 1
 	}
 	numPages := int(math.Min(float64(showPageCount), float64(totalPages)))
