@@ -339,7 +339,9 @@ func saveFromForm(c *gin.Context) {
 	objectMap := Unmarshal(form, &modelAdmin)
 	fmt.Println(objectMap)
 	// proto := modelAdmin.Accessor.Prototype()
-	_, err = modelAdmin.Accessor.Upsert(pk, objectMap)
+	if len(objectMap) > 0 {
+		_, err = modelAdmin.Accessor.Upsert(pk, objectMap)
+	}
 	if err != nil {
 		log.Println(err)
 		if err.Error() == "Not Found" {
