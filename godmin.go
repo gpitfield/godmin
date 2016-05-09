@@ -153,7 +153,6 @@ func Register(ma ModelAdmin) {
 	if _, exists := modelAdmins[lcModelName]; exists {
 		log.Println(ma.ModelName, "Model Admin already registered")
 	}
-	log.Println("Registering", ma.ModelName, "admin")
 	if ma.FieldWidgets == nil {
 		ma.FieldWidgets = defaultWidgets(ma)
 	}
