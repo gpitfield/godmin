@@ -51,7 +51,7 @@ type Accessor interface {
 	List(count, page int) (results interface{}, err error)
 	Count() (count int, err error)
 	Upsert(pk string, values map[string][]string) (outPk string, err error)
-	Delete(pk string) (err error)
+	DeletePK(pk string) (err error)
 }
 
 // type Structer interface {
@@ -378,7 +378,7 @@ func changeUpdate(c *gin.Context) {
 		saveFromForm(c)
 		change(c)
 	case "delete":
-		modelAdmin.Accessor.Delete(c.Param("pk"))
+		modelAdmin.Accessor.DeletePK(c.Param("pk"))
 		c.Request.Method = "GET"
 		c.Redirect(http.StatusFound, fmt.Sprintf("../%v", strings.ToLower(c.Param("model"))))
 	}
