@@ -1,6 +1,5 @@
-// Package godmin provides an admin interface for arbitrary
-// structs to register with a gin-based html admin, similar to
-// Django's admin interface.
+// Package godmin provides an admin interface for arbitrary structs
+// to register with a gin-based html admin, similar to Django's admin interface.
 package godmin
 
 import (
@@ -29,8 +28,21 @@ type AdminAction struct {
 	Action         func(values *url.Values) (err error)
 }
 
-func NewAdminAction(displayName string, confirm bool, confirmTitle string, confirmMsg string, action func(values *url.Values) (err error)) *AdminAction {
+func lowerLettersOnly(r rune) rune {
+	switch {
+	case r == '-' || r >= 'a' && r <= 'z':
+		return r
+	default:
+		return -1
+	}
+}
+
+// NewAdminAction returns a pointer to a new AdminAction instance.
+func NewAdminAction(displayName string, confirm bool, confirmTitle string,
+	confirmMsg string, action func(values *url.Values) (err error)) *AdminAction {
+
 	identifier := strings.Replace(strings.ToLower(displayName), " ", "-", -1)
+	identifier = strings.Map(lowerLettersOnly, identifier)
 	return &AdminAction{
 		Identifier:     identifier,
 		DisplayName:    displayName,
@@ -41,7 +53,7 @@ func NewAdminAction(displayName string, confirm bool, confirmTitle string, confi
 	}
 }
 
-// The Authenticator interface manages admin rights. If no Authenticator is provided, the admin is completely open.
+// Authenticator manages admin rights. If no Authenticator is provided, the admin is completely open.
 // This is of course strongly not recommended.
 type Authenticator interface {
 	// middleware handler that validates whether a user is logged in,
@@ -51,7 +63,7 @@ type Authenticator interface {
 	HasPrivilege(c *gin.Context, collection string, action string, ids []string) (ok bool)
 }
 
-// The Accessor interface is implemented by types wishing to register their structs
+// Accessor is implemented by types wishing to register their structs
 // with the admin. It enables the admin to read/write administered objects.
 type Accessor interface {
 	// Return an single empty instance of the model
@@ -66,9 +78,12 @@ type Accessor interface {
 	DeletePK(pk string) (err error)
 }
 
+// Seacher provides a list of fields (for admin users to see what's being searched)
+// and a search function that returns a list of results based on the provided url.Values,
+// the count per page, and the page number.
 type Searcher struct {
-	Fields []string
-	Search func(*url.Values) (results interface{}, err error)
+	Placeholder string // preferred to indicate fields that are being searched
+	Search      func(count, page int, query string) (results interface{}, totalCount int, err error)
 }
 
 // type Structer interface {
@@ -233,6 +248,13 @@ func index(c *gin.Context) {
 
 // list of model instances, with dropdown actions and checkboxes
 func list(c *gin.Context) {
+	var (
+		results interface{}
+		err     error
+		page    int
+		count   int
+		query   string
+	)
 	modelAdmin, exists := modelAdmins[strings.ToLower(c.Param("model"))]
 	if !exists {
 		c.String(http.StatusNotFound, "Not found.")
@@ -241,8 +263,19 @@ func list(c *gin.Context) {
 	if !hasPermissions(c, modelAdmin.ModelName, "read", nil) {
 		return
 	}
-	page, err := strconv.Atoi(c.DefaultQuery("page", "0"))
-	count, _ := modelAdmin.Accessor.Count()
+	page, err = strconv.Atoi(c.DefaultQuery("page", "0"))
+	query = c.Query("q")
+
+	if modelAdmin.Searcher == nil || query == "" {
+		results, err = modelAdmin.Accessor.List(pageSize, page)
+		count, _ = modelAdmin.Accessor.Count()
+	} else {
+		results, count, err = modelAdmin.Searcher.Search(pageSize, page, query)
+	}
+	if err != nil {
+		log.Fatal("error in godmin list:", err)
+	}
+
 	totalPages := count / pageSize
 	if remainder := math.Mod(float64(count), float64(pageSize)); remainder > 0.0 {
 		totalPages += 1
@@ -254,10 +287,6 @@ func list(c *gin.Context) {
 	startPage = int(math.Max(0, float64(endPage-(numPages-1))))
 	for i := 0; i < numPages; i++ {
 		pages[i] = startPage + i
-	}
-	results, err := modelAdmin.Accessor.List(pageSize, page)
-	if err != nil {
-		log.Fatal("error in godmin list:", err)
 	}
 
 	resultValues := reflect.ValueOf(results)
@@ -275,6 +304,10 @@ func list(c *gin.Context) {
 	dot["page"] = page
 	dot["pages"] = pages
 	dot["lastPage"] = totalPages - 1
+	if modelAdmin.Searcher != nil {
+		dot["search"] = true
+		dot["searchPlaceholder"] = modelAdmin.Searcher.Placeholder
+	}
 	c.HTML(200, "admin/list.html", dot)
 }
 
@@ -338,7 +371,7 @@ func change(c *gin.Context) {
 
 // upsert an object from HTML form values
 func saveFromForm(c *gin.Context) {
-	fmt.Println("hitting SaveFromForm")
+	log.Println("hitting SaveFromForm")
 	modelAdmin, exists := modelAdmins[strings.ToLower(c.Param("model"))]
 	if !exists {
 		c.String(http.StatusNotFound, "Not found.")
@@ -353,9 +386,9 @@ func saveFromForm(c *gin.Context) {
 		log.Fatal(err)
 	}
 	form := c.Request.Form
-	fmt.Println("form", form)
+	log.Println("form", form)
 	objectMap := Unmarshal(form, &modelAdmin)
-	fmt.Println(objectMap)
+	log.Println(objectMap)
 	// proto := modelAdmin.Accessor.Prototype()
 	if len(objectMap) > 0 {
 		_, err = modelAdmin.Accessor.Upsert(pk, objectMap)
@@ -377,7 +410,7 @@ func saveFromForm(c *gin.Context) {
 
 // update an object from its change form
 func changeUpdate(c *gin.Context) {
-	fmt.Println("hitting changeUpdate")
+	log.Println("hitting changeUpdate")
 	action := c.DefaultPostForm("action", "save")
 	delete(c.Request.Form, "action") // don't keep this as part of the object
 	modelAdmin, exists := modelAdmins[strings.ToLower(c.Param("model"))]

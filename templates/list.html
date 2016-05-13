@@ -13,7 +13,6 @@
 
 </head>
   <body>
-
     <div class="container">
     {{ template "admin/navbar.html" .}}
     {{ $values := .results}}
@@ -44,10 +43,13 @@
             <button type="submit" class="btn btn-default" disabled="disabled">Go</button>
           {{end}}
           <a href="add" class="btn btn-success">New</a>
-          <div class="input-group" style="width:400px;float:right;">
-            <span class="input-group-addon" id="basic-addon1"><span class="glyphicon glyphicon-search"></span></span>
-            <input type="text" class="form-control" placeholder="Search" aria-describedby="basic-addon1">
-          </div>
+
+          {{if .search}}
+            <div class="input-group" style="width:400px;float:right;">
+              <span class="input-group-addon" id="basic-addon1"><span class="glyphicon glyphicon-search"></span></span>
+              <input type="text" class="form-control" placeholder="{{.searchPlaceholder}}" id="search" tabindex="1">
+            </div>
+          {{end}}
           <table class="table table-hover" id="list-table">
             <th>
               <input type="checkbox" id="selectAll">
@@ -121,6 +123,13 @@
 
         $(".modal-confirm").click(function(event){
           confirmAction(event);
+        });
+
+        $("#search").keyup(function(event){
+          if (event.which == 13) {
+            event.preventDefault();
+            window.location.href = window.location.pathname + "?q=" + $("#search").val();
+          }
         });
 
 
