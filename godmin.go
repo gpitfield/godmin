@@ -29,6 +29,18 @@ type AdminAction struct {
 	Action         func(values *url.Values) (err error)
 }
 
+func NewAdminAction(displayName string, confirm bool, confirmTitle string, confirmMsg string, action func(values *url.Values) (err error)) *AdminAction {
+	identifier := strings.Replace(strings.ToLower(displayName), " ", "-", -1)
+	return &AdminAction{
+		Identifier:     identifier,
+		DisplayName:    displayName,
+		Confirm:        confirm,
+		ConfirmTitle:   confirmTitle,
+		ConfirmMessage: confirmMsg,
+		Action:         action,
+	}
+}
+
 // The Authenticator interface manages admin rights. If no Authenticator is provided, the admin is completely open.
 // This is of course strongly not recommended.
 type Authenticator interface {
@@ -52,6 +64,11 @@ type Accessor interface {
 	Count() (count int, err error)
 	Upsert(pk string, values map[string][]string) (outPk string, err error)
 	DeletePK(pk string) (err error)
+}
+
+type Searcher struct {
+	Fields []string
+	Search func(*url.Values) (results interface{}, err error)
 }
 
 // type Structer interface {
@@ -78,12 +95,13 @@ type ModelAdmin struct {
 	ListActions    map[string]*AdminAction
 	PKStringer
 	Accessor
+	*Searcher
 }
 
 // return a new ModelAdmin from the supplied arguments
 func NewModelAdmin(modelName string, pkFieldName string, listFields map[string]bool,
 	omitFields map[string]bool, readOnlyFields map[string]bool, fieldNotes map[string]string,
-	fieldWidgets map[string]string, pkStringer PKStringer, accessor Accessor) (ma ModelAdmin) {
+	fieldWidgets map[string]string, pkStringer PKStringer, accessor Accessor, searcher *Searcher) (ma ModelAdmin) {
 	ma = ModelAdmin{
 		modelName,
 		pkFieldName,
@@ -95,6 +113,7 @@ func NewModelAdmin(modelName string, pkFieldName string, listFields map[string]b
 		make(map[string]*AdminAction),
 		pkStringer,
 		accessor,
+		searcher,
 	}
 	return
 }
