@@ -19,7 +19,7 @@
         {{end}}
         <ul class="nav navbar-nav navbar-right">
         {{if .accountId}}
-            <li><a href="{{.logoutURL}}" class="btn">Hello, {{.username}} (Log out)</a></li>    
+            <li><a href="{{.logoutURL}}" class="btn">Log out</a></li>    
         {{else}}
             <li><a href="{{.loginURL}}?next=/admin" class="btn">Log in</a></li>    
         {{end}}

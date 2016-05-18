@@ -1,13 +1,12 @@
-Search
 Filter
+Sort
 
 Make it easier to spec readonly fields, etc. Map is a kludge, should just be a list
-fix crash when single page of results "Can't canonicalize query: BadValue bad skip value in query"
+	newModelAdmin should just take lists of field names and convert those to maps
 
 
 Call init functions on insert (?) -> define an interface for hooks and call that if available
 
-newModelAdmin should just take lists of field names and convert those to maps
 
 wwwform
 	Marshal an object to a []AdminField
