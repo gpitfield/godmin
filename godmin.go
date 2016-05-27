@@ -4,9 +4,9 @@ package godmin
 
 import (
 	// "errors"
-	// "html/template"
 	// "encoding/json"
 	"fmt"
+	"html/template"
 	"log"
 	"math"
 	"net/http"
@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	templ "github.com/gpitfield/godmin/template"
 )
 
 // AdminAction defines actions that can be taken on objects in the admin
@@ -213,6 +214,15 @@ func Routes(r *gin.RouterGroup) {
 	r.Handle("POST", "/:model/", listUpdate)
 	r.Handle("GET", "/:model/:pk", change)
 	r.Handle("POST", "/:model/:pk", changeUpdate)
+}
+
+func ParseTemplates(t *template.Template) {
+	fmt.Println("Parsing admin templates")
+	templ.LoadTemplates(t, "index.html",
+		"list.html", "change.html", "bootstrap.html",
+		"navbar.html", "paginator.html", "confirmModal.html",
+		"tableWidgets.html", "formWidgets.html", "error.html",
+		"footer.html")
 }
 
 // Check for permission issues via the status code set by the Authenticator
