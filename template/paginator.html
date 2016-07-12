@@ -5,8 +5,9 @@
     </a>
   </li>
   {{$page := .page}}
+  {{$query := .query}}
   {{range $index, $val := .pages}}
-    <li{{if eq $val $page}} class="active"{{end}}><a href="?page={{$val}}">{{add 1 $val}}</a></li>
+    <li{{if eq $val $page}} class="active"{{end}}><a href="?page={{$val}}{{if $query}}&q={{$query}}{{end}}">{{add 1 $val}}</a></li>
   {{end}}
   <li>
     <a href="?page={{.lastPage}}" aria-label="Next">
