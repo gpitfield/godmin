@@ -66,9 +66,11 @@ func Marshal(in interface{}, admin ModelAdmin, idPrefix string) []AdminField {
 			} else {
 				value = field.String()
 			}
-		case reflect.Int:
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 			value = strconv.FormatInt(field.Int(), 10)
-		case reflect.Float64:
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+			value = strconv.FormatUint(field.Uint(), 10)
+		case reflect.Float64, reflect.Float32:
 			value = strconv.FormatFloat(field.Float(), 'f', -1, 64)
 		case reflect.Bool:
 			value = strconv.FormatBool(field.Bool())
