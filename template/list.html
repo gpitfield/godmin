@@ -54,8 +54,12 @@
             <th>
               <input type="checkbox" id="selectAll">
             </th>
-            {{range $key, $val := .modelAdmin.ListFields}}
-              <th>{{$key}}</th>
+
+              {{range $key, $val := .modelAdmin.ListFields}}
+              <th>{{$key}}{{if $val}}
+                  <span class="glyphicon glyphicon-sort text-muted sort" data-field="{{$key}}" data-sort={{index $.orders $key}}></span>
+                {{end}}
+              </th>
             {{end}}
             {{template "admin/tableWidgets.html" .}}
           </table>
@@ -96,7 +100,36 @@
         $("#record-set").submit();
       }
 
+      function updateSortIcons() {
+        $(".sort").each(function(){
+          switch ($(this).data("sort")){
+            case 0:
+              $(this).removeClass("glyphicon-sort-by-attributes");
+              $(this).removeClass("glyphicon-sort-by-attributes-alt");
+              $(this).addClass("glyphicon-sort");
+              $(this).removeClass("text-primary");
+              $(this).addClass("text-muted");
+              break;
+            case 1:
+              $(this).addClass("glyphicon-sort-by-attributes");
+              $(this).removeClass("glyphicon-sort-by-attributes-alt");
+              $(this).removeClass("glyphicon-sort");
+              $(this).addClass("text-primary");
+              $(this).removeClass("text-muted");              
+              break;
+            case -1:
+              $(this).removeClass("glyphicon-sort-by-attributes");
+              $(this).addClass("glyphicon-sort-by-attributes-alt");
+              $(this).removeClass("glyphicon-sort");
+              $(this).addClass("text-primary");
+              $(this).removeClass("text-muted");              
+              break;
+          }
+        });
+      }
+
       $(document).ready(function(){
+        updateSortIcons();
         $("#selectAll").change(function(){
           if ($(this).is(":checked")) {
             $(":checkbox").prop("checked", true);
@@ -133,6 +166,45 @@
           }
         });
 
+        $(".sort").click(function(event){
+          var order = $(this).data("sort") // save the current sort order
+          $(".sort").data("sort", 0); // zero out all the sort fields and icons
+
+          switch (order){ // toggle the search mode for this field
+            case 0:
+              $(this).data("sort", 1);
+              break;
+            case 1:
+              $(this).data("sort", -1);
+              break;
+            case -1:
+              $(this).data("sort", 0);
+              break;
+          }
+          
+          updateSortIcons(); // set the icons accordingly
+
+          // modify the URL for the sort and any existing search query
+          var sortRE = /o=[-\w]*/;
+          var sortQuery = "o=";
+          if ($(this).data("sort") == 1) {
+            sortQuery += $(this).data("field");
+          } else if ($(this).data("sort") == -1) {
+            sortQuery += "-";
+            sortQuery += $(this).data("field");
+          } else {
+            sortQuery = "";
+          }
+          if (window.location.search == "") {
+            window.location.href = window.location.pathname + "?" + sortQuery;
+          } else {
+            if (sortRE.test(window.location.search)) {
+              window.location.href = window.location.pathname + window.location.search.replace(sortRE, sortQuery);
+            } else {
+              window.location.href = window.location.pathname + window.location.search + "&" + sortQuery;
+            }
+          }
+        });
 
       });
     </script>

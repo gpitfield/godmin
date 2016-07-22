@@ -73,7 +73,7 @@ type Accessor interface {
 	// Must return a single struct of the administered type
 	Get(pk string) (result interface{}, err error)
 	// Must return a slice of structs of the administered type
-	List(count, page int) (results interface{}, err error)
+	List(count, page int, order []Order) (results interface{}, err error)
 	Count() (count int, err error)
 	Upsert(pk string, values map[string][]string) (outPk string, err error)
 	DeletePK(pk string) (err error)
@@ -81,17 +81,19 @@ type Accessor interface {
 
 // Seacher provides a list of fields (for admin users to see what's being searched)
 // and a search function that returns a list of results based on the provided url.Values,
-// the count per page, and the page number.
+// the count per page, the page number, and any sort order.
 type Searcher struct {
 	Placeholder string // preferred to indicate fields that are being searched
-	Search      func(count, page int, query string) (results interface{}, totalCount int, err error)
+	Search      func(count, page int, query string, order []Order) (results interface{}, totalCount int, err error)
 }
 
-// type Structer interface {
-// 	ProtoStruct() (result struct{})
-// }
+// Order provides the information necessary to sort on a field
+type Order struct {
+	FieldName string
+	Ascending bool
+}
 
-// convert the primary key to a string if it isn't one
+// PKStringer converts the primary key to a string if it isn't one
 type PKStringer interface {
 	PKString(pk interface{}) string
 }
@@ -103,7 +105,7 @@ type PKStringer interface {
 type ModelAdmin struct {
 	ModelName      string // database table/collection name
 	PKFieldName    string
-	ListFields     map[string]bool   // optional fields to be shown in list views.
+	ListFields     map[string]bool   // optional fields to be shown in list views. True if sortable, else false
 	OmitFields     map[string]bool   // optional fields to omit from change view
 	ReadOnlyFields map[string]bool   // optional read-only fields for change view
 	FieldNotes     map[string]string // optional note about the field
@@ -264,6 +266,9 @@ func list(c *gin.Context) {
 		page    int
 		count   int
 		query   string
+		sort    string
+		order   []Order
+		orders  = make(map[string]int)
 	)
 	modelAdmin, exists := modelAdmins[strings.ToLower(c.Param("model"))]
 	if !exists {
@@ -275,12 +280,30 @@ func list(c *gin.Context) {
 	}
 	page, err = strconv.Atoi(c.DefaultQuery("page", "0"))
 	query = c.Query("q")
+	sort = c.Query("o")
+	for field, _ := range modelAdmin.ListFields {
+		orders[field] = 0
+	}
+	if sort != "" {
+		field := strings.TrimPrefix(sort, "-")
+		ascend := true
+		if strings.HasPrefix(sort, "-") {
+			ascend = false
+		}
+		order = []Order{Order{field, ascend}}
+		if ascend {
+			orders[field] = 1
+		} else {
+			orders[field] = -1
+		}
+	}
+	log.Println("sort was received:", sort)
 
 	if modelAdmin.Searcher == nil || query == "" {
-		results, err = modelAdmin.Accessor.List(pageSize, page)
+		results, err = modelAdmin.Accessor.List(pageSize, page, order)
 		count, _ = modelAdmin.Accessor.Count()
 	} else {
-		results, count, err = modelAdmin.Searcher.Search(pageSize, page, query)
+		results, count, err = modelAdmin.Searcher.Search(pageSize, page, query, order)
 	}
 	if err != nil {
 		log.Fatal("error in godmin list:", err)
@@ -315,6 +338,7 @@ func list(c *gin.Context) {
 	dot["pages"] = pages
 	dot["lastPage"] = totalPages - 1
 	dot["query"] = query
+	dot["orders"] = orders
 	if modelAdmin.Searcher != nil {
 		dot["search"] = true
 		dot["searchPlaceholder"] = modelAdmin.Searcher.Placeholder
