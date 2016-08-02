@@ -339,6 +339,7 @@ func list(c *gin.Context) {
 	dot["lastPage"] = totalPages - 1
 	dot["query"] = query
 	dot["orders"] = orders
+	dot["sort"] = sort
 	if modelAdmin.Searcher != nil {
 		dot["search"] = true
 		dot["searchPlaceholder"] = modelAdmin.Searcher.Placeholder
