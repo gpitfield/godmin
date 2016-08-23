@@ -297,7 +297,6 @@ func list(c *gin.Context) {
 			orders[field] = -1
 		}
 	}
-	log.Println("sort was received:", sort)
 
 	if modelAdmin.Searcher == nil || query == "" {
 		results, err = modelAdmin.Accessor.List(pageSize, page, order)
