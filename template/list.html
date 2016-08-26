@@ -159,7 +159,7 @@
           confirmAction(event);
         });
 
-        $("#search").keyup(function(event){
+        $("#search").keypress(function(event){
           if (event.which == 13) {
             event.preventDefault();
             window.location.href = window.location.pathname + "?q=" + $("#search").val();
